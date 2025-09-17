@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Manager</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+  <style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+  :root {
+  --primary: #ef4444; /* Vibrant red */
+  --primary-glow: rgba(239, 68, 68, 0.4); /* Red glow */
+  --secondary: #dc2626; /* Deeper red for hover */
+  --background: #0a0a0f; /* Almost black, deeper */
+  --surface: #1a1a25; /* Dark gray with hint of red undertone */
+  --surface-glass: rgba(26, 26, 37, 0.8); /* Darker glass */
+  --text: #f8f9fa;
+  --text-muted: #a1a1aa;
+  --error: #f43f5e; /* Pinkish red for errors */
+  --error-glow: rgba(244, 63, 94, 0.3);
+  --success: #10b981; /* Keep green for contrast (optional) */
+  --success-glow: rgba(16, 185, 129, 0.3);
+  --border-glow: rgba(239, 68, 68, 0.2); /* Red border glow */
+}
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+    position: relative;
+  }
+
+  /* -------------------- Motion Background -------------------- */
+  .background-motion {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: var(--background);
+    overflow: hidden;
+  }
+
+  .grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    opacity: 0.2;
+    animation: gridFloat 15s infinite alternate ease-in-out;
+  }
+
+  @keyframes gridFloat {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0.15;
+  }
+  25% {
+    transform: translate(-5px, 10px) rotate(0.3deg) scale(1.02);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translate(5px, -5px) rotate(-0.3deg) scale(0.98);
+    opacity: 0.2;
+  }
+  75% {
+    transform: translate(-10px, 0px) rotate(0.5deg) scale(1.03);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0.15;
+  }
+}
+
+  .particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .particle {
+    position: absolute;
+    background: var(--primary-glow);
+    border-radius: 50%;
+    filter: blur(1px);
+    animation: floatGlow 15s infinite linear;
+    box-shadow: 0 0 8px var(--primary-glow);
+  }
+
+  @keyframes floatGlow {
+    0% {
+      transform: translateY(100vh) translateX(0);
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      transform: translateY(-100vh) translateX(100vw);
+      opacity: 0;
+    }
+  }
+  @keyframes floatOrganic {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(
+      calc(100vw * var(--direction-x, 1)),
+      calc(-100vh * var(--direction-y, 1))
+    ) rotate(3deg);
+    opacity: 0;
+  }
+}
+
+  /* -------------------- Hamburger & Sidebar -------------------- */
+  .hamburger {
+    position: fixed;
+    top: 25px;
+    left: 25px;
+    z-index: 100;
+    cursor: pointer;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 15px var(--primary-glow);
+    border: 1px solid var(--border-glow);
+  }
+
+  .hamburger:hover {
+    background: var(--primary);
+    transform: rotate(15deg) scale(1.05);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), 0 0 20px var(--primary-glow);
+  }
+
+  .hamburger-line {
+    width: 28px;
+    height: 3px;
+    background: var(--text);
+    margin: 5px 0;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+  }
+
+  .hamburger:hover .hamburger-line {
+    background: #fff;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -320px;
+    top: 0;
+    width: 320px;
+    height: 100vh;
+    background: var(--surface-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 2.5rem 2rem;
+    transition: all 0.5s cubic-bezier(0.86, 0, 0.07, 1);
+    box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(139, 92, 246, 0.1);
+    border-right: 1px solid var(--border-glow);
+    z-index: 99;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar.active {
+    left: 0;
+    box-shadow: 10px 0 50px rgba(0, 0, 0, 0.6), 0 0 30px var(--primary-glow);
+  }
+
+  .user-profile {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    margin-bottom: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+
+  .user-profile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 15px var(--primary-glow);
+  }
+
+  .user-avatar {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    margin-right: 15px;
+    border: 3px solid var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+    transition: all 0.3s ease;
+  }
+
+  .user-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px var(--primary-glow);
+  }
+
+  .user-name {
+    font-weight: 700;
+    font-size: 1.1em;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .user-email {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    margin-top: 4px;
+  }
+
+  .sidebar-item {
+    padding: 16px 20px;
+    margin: 8px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sidebar-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-glow), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
+
+  .sidebar-item:hover::before {
+    opacity: 1;
+  }
+
+  .sidebar-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid var(--primary-glow);
+    transform: translateX(8px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3), 0 0 15px var(--primary-glow);
+    color: #fff;
+  }
+
+  .danger {
+    color: var(--error);
+  }
+
+  .danger:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: var(--error-glow) !important;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3), 0 0 15px var(--error-glow) !important;
+    color: #fff !important;
+  }
+
+  /* -------------------- Login Popup -------------------- */
+  #loginOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(10, 15, 31, 0.9) 0%, rgba(5, 5, 15, 0.95) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+  }
+
+  .login-popup {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 2.5rem;
+    border-radius: 20px;
+    text-align: center;
+    width: 380px;
+    animation: popupFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 30px var(--primary-glow);
+    border: 1px solid var(--border-glow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .login-popup::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+    animation: rotate 8s linear infinite;
+    z-index: -1;
+    opacity: 0.1;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes popupFadeIn {
+    from { transform: scale(0.7) translateY(40px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .remember-me {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+    font-size: 0.95em;
+    gap: 10px;
+    color: var(--text-muted);
+  }
+  
+
+  .remember-me input[type="checkbox"] {
+    transform: scale(1.2);
+    cursor: pointer;
+  }
+
+  .btn {
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    background: var(--primary);
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3), 0 0 15px var(--primary-glow);
+    font-size: 1em;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+  }
+
+  .btn:hover::before {
+    left: 100%;
+  }
+
+  .btn:hover {
+    background: var(--secondary);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 0 20px var(--primary-glow);
+    letter-spacing: 1px;
+  }
+
+  /* -------------------- Password Cards -------------------- */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem 4rem;
+  }
+
+  h1 {
+    font-weight: 700;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg, var(--primary), var(--success));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -1px;
+  }
+
+  #welcome {
+    font-size: 1.1em;
+    color: var(--text-muted);
+    margin-bottom: 30px;
+    font-weight: 500;
+  }
+
+  .password-card {
+    background: var(--surface-glass);
+    backdrop-filter: blur(10px);
+    padding: 25px;
+    border-radius: 16px;
+    margin: 20px 0;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .password-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px var(--primary-glow);
+    border-color: var(--border-glow);
+  }
+
+  .field-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 0;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+
+  .field-group:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .field-label {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.95em;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-group .btn {
+    padding: 8px 14px;
+    font-size: 0.85em;
+    border-radius: 8px;
+  }
+
+  .delete-group {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 15px;
+    gap: 10px;
+  }
+
+  /* -------------------- Modals -------------------- */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(5, 10, 25, 0.85);
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.4s ease;
+  }
+
+  .modal-content {
+    background: var(--surface-glass);
+    backdrop-filter: blur(25px);
+    margin: 8% auto;
+    padding: 30px;
+    border-radius: 20px;
+    width: 450px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px var(--primary-glow);
+    border: 1px solid var(--border-glow);
+    animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .close {
+    color: var(--error);
+    float: right;
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(239, 68, 68, 0.1);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+  }
+
+  .close:hover {
+    color: #fff;
+    background: var(--error);
+    transform: rotate(90deg) scale(1.1);
+    border-color: var(--error-glow);
+    box-shadow: 0 0 15px var(--error-glow);
+  }
+
+  @keyframes slideDown {
+    from { transform: translateY(-60px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+/* -------------------- Password Cards Layout -------------------- */
+#passwordList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px; /* Space between cards */
+    justify-content: space-between; /* Distribute space evenly */
+}
+
+.password-card {
+    /* Override previous width behavior */
+    width: calc(50% - 10px); /* ~50% width minus half the gap */
+    min-height: 280px; /* Adjust this value to make it more square */
+    /* Keep existing styles */
+    background: var(--surface-glass);
+    backdrop-filter: blur(10px);
+    padding: 20px; /* Slightly reduced padding for square feel */
+    border-radius: 16px;
+    margin: 0; /* Remove vertical margin, gap handles spacing */
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column; /* Stack children vertically */
+    justify-content: space-between; /* Distribute items within the card */
+}
+
+.password-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px var(--primary-glow);
+    border-color: var(--border-glow);
+}
+
+/* Make the field groups take up space efficiently */
+#passwordList .field-group {
+    margin: 8px 0; /* Slightly reduced margin */
+    padding: 10px; /* Slightly reduced padding */
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+.radial-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  animation: pulseGlow 8s ease-in-out infinite alternate;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes pulseGlow {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.03;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.08;
+  }
+}
+/* Ensure the delete button group stays at the bottom */
+#passwordList .delete-group {
+    margin-top: auto; /* Pushes it to the bottom of the flex container */
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05); /* Optional: visual separator */
+}
+  /* Recycle Bin Item Styling */
+  #recycleBinList .password-card {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border: 1px solid var(--error-glow);
+  }
+
+  #recycleBinList .password-card:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px var(--error-glow) !important;
+  }
+  #searchInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+  outline: none;
+  transition: all 0.3s ease; 
+}
+.container > div[style*="text-align: right"] {
+  padding-right: 10px;
+}
+</style>
+<meta name="theme-color" content="#0a0f1f">
+</head>
+<body>
+ 
+    <div class="background-motion">
+  <div class="grid"></div>
+  <div class="particles" id="particles"></div>
+</div>
+    <!-- Recycle Bin Modal -->
+<div id="recycleBinModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeRecycleBin()">&times;</span>
+    <h2>🗑️ Recycle Bin</h2>
+    <div id="recycleBinList">
+      <!-- Items will be rendered here -->
+    </div>
+    <button class="btn" onclick="closeRecycleBin()" style="margin-top: 15px;">Close</button>
+  </div>
+</div>
+  <!-- Hamburger -->
+  <div class="hamburger" onclick="toggleSidebar()">
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="user-profile" id="userProfile" style="display: none;">
+      <img id="userAvatar" class="user-avatar" src="" alt="User avatar">
+      <div>
+        <div id="userName" class="user-name"></div>
+        <div id="userEmail" class="user-email"></div>
+      </div>
+    </div>
+    
+    <div class="sidebar-item" onclick="openhomesection()">Home</div>
+    <div class="sidebar-item" onclick="openSettings()">Settings</div>
+    <div class="sidebar-item" onclick="openaboutsection()">About</div>
+    <div class="sidebar-item" onclick="openRecycleBin()">Recycle Bin</div>
+    <div class="sidebar-item" onclick="openhelpsection()">Help</div>
+    <div class="sidebar-item danger" onclick="switchUser()">Switch User</div>
+    <div class="sidebar-item danger" onclick="logout()">Logout</div>
+   
+  </div>
+
+
+  <!-- Login Popup -->
+  <div id="loginOverlay">
+    <div class="login-popup">
+      <h2>Login with Google</h2>
+      <div id="g_id_onload"
+           data-client_id="105874237312-pfsbu1edr4buuut7oig4psfa1equhsek.apps.googleusercontent.com"
+           data-callback="handleCredentialResponse"
+           // Load recycle bin
+let savedRecycle = localStorage.getItem("recycleBin_" + currentUser);
+recycleBin = savedRecycle ? JSON.parse(savedRecycle) : [];
+// Load recycle bin
+let savedRecycle = localStorage.getItem("recycleBin_" + currentUser);
+recycleBin = savedRecycle ? JSON.parse(savedRecycle) : [];>
+           
+      </div>
+      <div class="g_id_signin" data-type="standard"></div>
+      <div class="remember-me">
+        <input type="checkbox" id="rememberMe">
+        <label for="rememberMe">Remember Me</label>
+      </div>
+    </div>
+  </div>
+
+<!-- Main -->
+<div class="container">
+  <h1>Z&A Password Manager</h1>
+  <p id="welcome"></p>
+
+  <!-- ✅ Search Bar - Aligned Right, Above Password List -->
+  <div style="text-align: right; margin: 25px 0;">
+    <div style="display: inline-block; position: relative; max-width: 500px; width: 100%;">
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="  Search service name..." 
+        style="width: 100%; padding: 14px 20px; border-radius: 12px; border: 1px solid var(--border-glow); background: var(--surface-glass); backdrop-filter: blur(10px); color: var(--text); font-size: 1em; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: all 0.3s ease;"
+        oninput="filterPasswords()"
+      >
+      <div id="clearSearch" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 1.2em; display: none;" onclick="clearSearch()">✕</div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="addPasswordPrompt()">➕ Add Password</button>
+  <div id="passwordList"></div>
+</div>
+
+  <!-- Settings Popup -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeSettings()">&times;</span>
+      <h2>⚙️ Settings</h2>
+      <label>
+        <input type="checkbox" id="darkModeToggle"> Enable Dark Mode
+      </label>
+      <br><br>
+      <button class="btn" onclick="alert('Saved!')">Save Settings</button>
+    </div>
+  </div>
+
+  <!-- help pop up -->
+  <div id="helpModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closehelpsection()">&times;</span>
+      <h2>HELP SECTION</h2>
+      <label>
+        <input type="button" onclick="window.open('https://www.instagram.com/@md.zain_a/', '')">My Instagram!</button>
+      </label>
+      <br><br>
+      <button class="btn" onclick="window.open('https://wa.me/9889939643', '')">My Whatsapp!</button>
+    </div>
+  </div>
+  <!-- about pop up -->
+  <div id="aboutModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeaboutsection()">&times;</span>
+      <h2>ABOUT SECTION</h2>
+      <label>
+        About Password Locker
+Password Locker is your smart and secure solution to store, manage, and access all your passwords in one place. With strong encryption and a simple interface, your online accounts stay safe and always within reach.
+      </label>
+      <br><br>
+      <button class="btn" onclick="window.open('https://wa.me/9889939643', '')">My Whatsapp!</button>
+    </div>
+  </div>
+<div class="radial-pulse"></div>
+  <!-- Home Pop Up -->
+  <div id="homeModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closehomesection()">&times;</span>
+      <h2>WELCOME BRO👋</h2>
+      <label>
+        <h3>Welcome to Password Locker!</h3>
+        <p>Your secure password manager for all your online accounts. Store, manage, and access your passwords with ease.</p>
+      </label>
+      <br><br>
+      
+      <button class="btn" onclick="window.open('https://wa.me/9889939643', '')">My Whatsapp!</button>
+      <div>
+      <button class="btn" onclick="closehomesection()">Close</button>
+    </div>
+    </div>
+    
+  </div>
+  <script>
+function createParticles() {
+  const container = document.getElementById('particles');
+  const count = 120; // Increased for denser effect
+
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('div');
+    particle.classList.add('particle');
+
+    // Random size (1px to 6px for subtlety)
+    const size = Math.random() * 5 + 1;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+
+    // Start position (off-screen or random)
+    const startX = Math.random() * 200 - 50; // -50% to 150%
+    const startY = Math.random() * 150 - 25; // Start above or below
+    particle.style.left = `${startX}%`;
+    particle.style.top = `${startY}%`;
+
+    // Random color with slight glow variance
+    const hue = Math.floor(Math.random() * 30) + 340; // Reds & Pinks
+    const saturation = Math.floor(Math.random() * 20) + 70; // 70-90%
+    const lightness = Math.floor(Math.random() * 30) + 50; // 50-80%
+    particle.style.background = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.6)`;
+
+    // Enhanced glow and blur
+    particle.style.filter = `blur(${Math.random() * 1 + 0.5}px)`;
+    particle.style.boxShadow = `0 0 ${Math.random() * 10 + 5}px hsla(${hue}, ${saturation}%, ${lightness}%, 0.4)`;
+
+    // Random, smooth, non-linear duration (15s to 40s)
+    const duration = Math.random() * 25 + 15;
+    particle.style.animationDuration = `${duration}s`;
+
+    // Random delay (-10s to 10s) for staggered start
+    const delay = Math.random() * 20 - 10;
+    particle.style.animationDelay = `${delay}s`;
+
+    // Use a more organic, floating keyframe
+    particle.style.animationName = 'floatOrganic';
+    particle.style.animationTimingFunction = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'; // Smooth, natural curve
+    particle.style.animationIterationCount = 'infinite';
+    particle.style.animationFillMode = 'forwards';
+
+    container.appendChild(particle);
+  }
+}
+// Mouse Interaction for Particles (Ultra-Enhanced)
+let mouseX = 0, mouseY = 0;
+let particleElements = [];
+
+document.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth) - 0.5; // -0.5 to 0.5
+  mouseY = (e.clientY / window.innerHeight) - 0.5;
+});
+
+function updateParticlePositions() {
+  if (particleElements.length === 0) {
+    particleElements = document.querySelectorAll('.particle');
+  }
+
+  particleElements.forEach(p => {
+    const speed = 0.03; // Sensitivity
+    const x = mouseX * speed;
+    const y = mouseY * speed;
+    p.style.transform = `translate(calc(${x} * 100vw), calc(${y} * 100vh))`;
+  });
+
+  requestAnimationFrame(updateParticlePositions);
+}
+
+// Start the animation loop
+updateParticlePositions();
+// Add this new keyframe animation to your existing CSS <style> block
+
+// Initialize on load
+window.addEventListener('load', createParticles);
+
+// Re-create particles on window resize for performance
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    document.getElementById('particles').innerHTML = '';
+    createParticles();
+  }, 250);
+});
+</script>
+  <script>
+// Generate floating particles
+function createParticles() {
+  const container = document.getElementById('particles');
+  const count = 50; // Number of particles
+
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('div');
+    particle.classList.add('particle');
+
+    // Random size
+    const size = Math.random() * 5 + 2;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+
+    // Random position
+    particle.style.left = `${Math.random() * 100}%`;
+    particle.style.top = `${Math.random() * 100}%`;
+
+    // Random animation duration
+    const duration = Math.random() * 15 + 10;
+    particle.style.animationDuration = `${duration}s`;
+
+    // Random delay
+    const delay = Math.random() * 5;
+    particle.style.animationDelay = `${delay}s`;
+
+    container.appendChild(particle);
+  }
+}
+
+// Call when page loads
+window.onload = function() {
+  createParticles();
+  window.onload = function() {
+    let remembered = localStorage.getItem("rememberedUser");
+    if (remembered) {
+        // ... existing code ...
+        renderPasswords();
+    }
+    window.onload = function() {
+    let remembered = localStorage.getItem("rememberedUser");
+    if (remembered) {
+        // ... existing code ...
+        renderPasswords();
+    }
+};
+
+// Focus search bar on '/' key press
+document.addEventListener('keydown', function(event) {
+    if (event.key === '/') {
+        event.preventDefault();
+        document.getElementById('searchInput').focus();
+    }
+});
+};
+};
+</script>
+  <script>
+    
+  let currentUser = null;
+  let passwordList = [];
+  let recycleBin = []; // ✅ Global declaration
+
+  function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('active');
+  }
+
+  // ✅ Properly defined at top level
+  function openRecycleBin() {
+    renderRecycleBin();
+    document.getElementById("recycleBinModal").style.display = "block";
+  }
+
+  function closeRecycleBin() {
+    document.getElementById("recycleBinModal").style.display = "none";
+  }
+
+  function renderRecycleBin() {
+    let container = document.getElementById("recycleBinList");
+    if (recycleBin.length === 0) {
+      container.innerHTML = `<p style="text-align:center; color: rgba(255,255,255,0.7); padding: 20px;">Recycle Bin is empty 🗑️</p>`;
+      return;
+    }
+
+    container.innerHTML = "";
+
+    recycleBin.forEach((item, index) => {
+      let div = document.createElement("div");
+      div.className = "password-card";
+      div.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+      div.innerHTML = `
+        <div class="field-group">
+          <span class="field-label">Service:</span>
+          <span>${item.service}</span>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Email:</span>
+          <span>${item.email}</span>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Password:</span>
+          <span>••••••</span>
+        </div>
+        <div class="delete-group">
+          <button class="btn" onclick="restoreFromRecycleBin(${index})">↩️ Restore</button>
+          <button class="btn danger" onclick="permanentlyDelete(${index})">❌ Delete Forever</button>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function restoreFromRecycleBin(index) {
+    let item = recycleBin.splice(index, 1)[0];
+    passwordList.push(item);
+    savePasswords();
+    saveRecycleBin();
+    renderRecycleBin();
+    renderPasswords();
+    alert("✅ Password restored!");
+  }
+
+  function permanentlyDelete(index) {
+    if (confirm("⚠️ Are you sure you want to permanently delete this password?")) {
+      recycleBin.splice(index, 1);
+      saveRecycleBin();
+      renderRecycleBin();
+      alert("🗑️ Permanently deleted.");
+    }
+  }
+function renderPasswords(filterText = '') {
+  let container = document.getElementById("passwordList");
+  container.innerHTML = "";
+
+  // Filter the list if search term exists
+  let filteredList = filterText 
+    ? passwordList.filter(item => 
+        item.service.toLowerCase().includes(filterText.toLowerCase())
+      )
+    : passwordList;
+
+  if (filterText && filteredList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: var(--text-muted); font-style: italic;">
+        No services found matching "${filterText}"
+      </div>
+    `;
+    return;
+  }
+
+  filteredList.forEach((item, index) => {
+    // Find the actual index in the original array (needed for edit/delete)
+    const actualIndex = passwordList.findIndex(p => p === item);
+
+    let div = document.createElement("div");
+    div.className = "password-card";
+    div.innerHTML = `
+      <div class="field-group">
+        <span class="field-label">Service:</span>
+        <span id="service_${actualIndex}">${item.service}</span>
+        <div class="btn-group">
+          <button class="btn edit" onclick="editField(${actualIndex}, 'service')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('service_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Email:</span>
+        <span id="email_${actualIndex}">${item.email}</span>
+        <div class="btn-group">
+          <button class="btn edit" onclick="editField(${actualIndex}, 'email')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('email_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Password:</span>
+        <span id="password_${actualIndex}" data-real="${item.password}">••••••</span>
+        <div class="btn-group">
+          <button class="btn edit" onclick="togglePassword(${actualIndex})">👁️ Show</button>
+          <button class="btn edit" onclick="editField(${actualIndex}, 'password')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('password_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="delete-group">
+        <button class="btn danger" onclick="deletePassword(${actualIndex})">🗑️ Delete</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+  function saveRecycleBin() {
+    if (currentUser) {
+      localStorage.setItem("recycleBin_" + currentUser, JSON.stringify(recycleBin));
+    }
+  }
+
+  function loadRecycleBin() {
+    if (currentUser) {
+      let saved = localStorage.getItem("recycleBin_" + currentUser);
+      recycleBin = saved ? JSON.parse(saved) : [];
+    }
+  }
+
+  document.addEventListener('click', function(event) {
+    const sidebar = document.querySelector('.sidebar');
+    const hamburger = document.querySelector('.hamburger');
+    if (!sidebar.contains(event.target) && !hamburger.contains(event.target) && sidebar.classList.contains('active')) {
+      sidebar.classList.remove('active');
+    }
+  });
+
+  // MODAL CONTROLLERS
+  function openSettings() { document.getElementById("settingsModal").style.display = "block"; }
+  function closeSettings() { document.getElementById("settingsModal").style.display = "none"; }
+  function openhelpsection() { document.getElementById("helpModal").style.display = "block"; }
+  function closehelpsection() { document.getElementById("helpModal").style.display = "none"; }
+  function openaboutsection() { document.getElementById("aboutModal").style.display = "block"; }
+  function closeaboutsection() { document.getElementById("aboutModal").style.display = "none"; }
+  function openhomesection() { document.getElementById("homeModal").style.display = "block"; }
+  function closehomesection() { document.getElementById("homeModal").style.display = "none"; }
+
+  // GOOGLE LOGIN
+  function handleCredentialResponse(response) {
+    const data = jwt_decode(response.credential);
+    currentUser = data.email;
+
+    // Load user data
+    loadRecycleBin();
+    let saved = localStorage.getItem("passwords_" + currentUser);
+    passwordList = saved ? JSON.parse(saved) : [];
+
+    // Remember Me
+    if (document.getElementById("rememberMe").checked) {
+      localStorage.setItem("rememberedUser", JSON.stringify(data));
+    }
+
+    // Update UI
+    document.getElementById("loginOverlay").style.display = "none";
+    document.getElementById("userProfile").style.display = "flex";
+    document.getElementById("userAvatar").src = data.picture;
+    document.getElementById("userName").textContent = data.name;
+    document.getElementById("userEmail").textContent = data.email;
+    document.getElementById("welcome").innerText = "Welcome, " + data.name;
+
+    renderPasswords();
+  }
+
+  window.onload = function() {
+    let remembered = localStorage.getItem("rememberedUser");
+    if (remembered) {
+      let data = JSON.parse(remembered);
+      currentUser = data.email;
+
+      loadRecycleBin();
+      let saved = localStorage.getItem("passwords_" + currentUser);
+      passwordList = saved ? JSON.parse(saved) : [];
+
+      document.getElementById("loginOverlay").style.display = "none";
+      document.getElementById("userProfile").style.display = "flex";
+      document.getElementById("userAvatar").src = data.picture;
+      document.getElementById("userName").textContent = data.name;
+      document.getElementById("userEmail").textContent = data.email;
+      document.getElementById("welcome").innerText = "Welcome back, " + data.name;
+
+      renderPasswords();
+    }
+  };
+
+  function logout() {
+    currentUser = null;
+    passwordList = [];
+    recycleBin = [];
+    document.getElementById("welcome").innerText = "";
+    document.getElementById("passwordList").innerHTML = "";
+    document.getElementById("userProfile").style.display = "none";
+    localStorage.removeItem("rememberedUser");
+    document.getElementById("loginOverlay").style.display = "flex";
+  }
+
+  function switchUser() { logout(); }
+
+  function savePasswords() {
+    if (currentUser) {
+      localStorage.setItem("passwords_" + currentUser, JSON.stringify(passwordList));
+    }
+  }
+
+  function renderPasswords(filterText = '') {
+  let container = document.getElementById("passwordList");
+  container.innerHTML = "";
+
+  // Filter the list if search term exists
+  let filteredList = filterText 
+    ? passwordList.filter(item => 
+        item.service.toLowerCase().includes(filterText.toLowerCase()) // We still filter by 'service' property
+      )
+    : passwordList;
+
+  if (filterText && filteredList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: var(--text-muted); font-style: italic;">
+        No services found matching "${filterText}"
+      </div>
+    `;
+    return;
+  }
+
+  // Function to highlight text
+  function highlightText(text, highlight) {
+    if (!highlight) return text;
+    const regex = new RegExp(`(${highlight})`, 'gi');
+    return text.replace(regex, '<mark style="background-color: var(--primary-glow); color: var(--text); padding: 0 2px; border-radius: 3px;">$1</mark>');
+  }
+
+  filteredList.forEach((item, index) => {
+    // Find the actual index in the original array (needed for edit/delete)
+    const actualIndex = passwordList.findIndex(p => p === item);
+
+    // Highlight the name if a filter is applied
+    const displayName = filterText ? highlightText(item.service, filterText) : item.service;
+
+    let div = document.createElement("div");
+    div.className = "password-card";
+    div.innerHTML = `
+      <div class="field-group">
+        <span class="field-label">Name:</span> <!-- ✅ Changed from "Service" to "Name" -->
+        <span id="service_${actualIndex}">${displayName}</span> <!-- ✅ Uses displayName which may contain highlight markup -->
+        <div class="btn-group">
+          <button class="btn edit" onclick="editField(${actualIndex}, 'service')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('service_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Email:</span>
+        <span id="email_${actualIndex}">${item.email}</span>
+        <div class="btn-group">
+          <button class="btn edit" onclick="editField(${actualIndex}, 'email')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('email_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Password:</span>
+        <span id="password_${actualIndex}" data-real="${item.password}">••••••</span>
+        <div class="btn-group">
+          <button class="btn edit" onclick="togglePassword(${actualIndex})">👁️ Show</button>
+          <button class="btn edit" onclick="editField(${actualIndex}, 'password')">✏️ Edit</button>
+          <button class="btn edit" onclick="copyToClipboard('password_${actualIndex}')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="delete-group">
+        <button class="btn danger" onclick="deletePassword(${actualIndex})">🗑️ Delete</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+  function addPasswordPrompt() {
+  if (!currentUser) { alert("Please login first!"); return; }
+  let service = prompt("Enter Name:"); // ✅ Changed prompt text
+  let email = prompt("Username Ya Gmail:");
+  let password = prompt("Password Likho:");
+  if (service && email && password) {
+    passwordList.push({ service, email, password });
+    savePasswords();
+    renderPasswords();
+  }
+}
+
+  function editField(index, field) {
+    let newValue = prompt("Enter new " + field + ":", passwordList[index][field]);
+    if (newValue) {
+      passwordList[index][field] = newValue;
+      savePasswords();
+      renderPasswords();
+    }
+  }
+
+  function deletePassword(index) {
+    let confirmDelete = confirm("Are you sure you want to move this password to Recycle Bin?");
+    if (confirmDelete) {
+      recycleBin.push(passwordList[index]);
+      passwordList.splice(index, 1);
+      savePasswords();
+      saveRecycleBin();
+      renderPasswords();
+    }
+  }
+
+  function copyToClipboard(elementId) {
+    let text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Copied: " + text);
+    });
+  }
+
+  function togglePassword(index) {
+    const span = document.getElementById(`password_${index}`);
+    const realPass = span.getAttribute("data-real");
+    const isHidden = span.textContent === "••••••";
+    span.textContent = isHidden ? realPass : "••••••";
+  }
+  function filterPasswords() {
+  const input = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('clearSearch');
+  const filterText = input.value.trim();
+
+  // Show/hide clear button
+  clearBtn.style.display = filterText ? 'block' : 'none';
+
+  // Render filtered list
+  renderPasswords(filterText);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearch').style.display = 'none';
+  renderPasswords(); // Show all
+}
+function filterPasswords() {
+  const input = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('clearSearch');
+  const filterText = input.value.trim();
+
+  // Show/hide clear button
+  clearBtn.style.display = filterText ? 'block' : 'none';
+
+  // Render filtered list
+  renderPasswords(filterText);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearch').style.display = 'none';
+  renderPasswords(); // Show all
+}
+
+// Focus search bar on '/' key press
+document.addEventListener('keydown', function(event) {
+    // Check if the pressed key is '/'
+    if (event.key === '/') {
+        // Prevent the default browser 'find in page' behavior
+        event.preventDefault();
+        // Focus on the search input
+        document.getElementById('searchInput').focus();
+    }
+});
+</script>
+
+  
+</body>
+</html>
